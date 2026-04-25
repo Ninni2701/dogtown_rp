@@ -44,6 +44,31 @@
         /* Mobile */
         #mobile-controls { position: absolute; bottom: 20px; right: 20px; z-index: 150; display: none; gap: 15px; }
         .mobile-btn { width: 65px; height: 65px; background: rgba(0, 255, 0, 0.1); border: 2px solid var(--neon-green); border-radius: 50%; color: var(--neon-green); display: flex; align-items: center; justify-content: center; font-weight: bold; user-select: none; }
+
+        /* --- STATS UI --- */
+        #stats-ui { display: none; position: absolute; top: 5%; left: 5%; width: 90%; max-width: 800px; max-height: 90%; background: rgba(10, 5, 20, 0.95); border: 2px solid #9d00ff; color: #fff; z-index: 250; padding: 20px; box-shadow: 0 0 30px rgba(157, 0, 255, 0.5); overflow-y: auto; }
+        .stats-header { text-align: center; margin-bottom: 20px; border-bottom: 1px solid #9d00ff; padding-bottom: 15px; }
+        .stats-header h2 { color: #9d00ff; margin: 0 0 10px 0; }
+        #street-cred-level { color: #ff00ff; }
+        .xp-bar { width: 100%; height: 20px; background: #1a1a1a; border: 1px solid #9d00ff; margin: 10px 0; }
+        .xp-fill { height: 100%; background: linear-gradient(90deg, #9d00ff, #ff00ff); width: 0%; transition: width 0.3s; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 20px; }
+        .stat-box { background: rgba(157, 0, 255, 0.1); border: 1px solid #9d00ff; padding: 10px; text-align: center; }
+        .stat-box .stat-name { color: #9d00ff; font-weight: bold; font-size: 12px; }
+        .stat-box .stat-value { font-size: 24px; color: #ff00ff; }
+        .stat-box .stat-desc { font-size: 10px; color: #888; }
+        .skills-section, .perks-section { margin-top: 15px; }
+        .skills-section h3, .perks-section h3 { color: #00f0ff; border-bottom: 1px solid #00f0ff; padding-bottom: 5px; font-size: 14px; }
+        .skills-grid, .perks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+        .skill-box { background: rgba(0, 240, 255, 0.1); border: 1px solid #00f0ff; padding: 8px; font-size: 11px; }
+        .skill-box .skill-name { color: #00f0ff; font-weight: bold; }
+        .skill-box .skill-level { color: #fff; }
+        .perk-box { background: rgba(255, 0, 60, 0.1); border: 1px solid var(--neon-red); padding: 8px; font-size: 11px; cursor: pointer; }
+        .perk-box.owned { background: rgba(0, 255, 0, 0.2); border-color: var(--neon-green); }
+        .perk-box .perk-name { color: var(--neon-red); font-weight: bold; }
+        .perk-box.owned .perk-name { color: var(--neon-green); }
+        .perk-box .perk-desc { color: #888; font-size: 10px; }
+        .perk-box .perk-req { color: #ffaa00; font-size: 10px; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/phaser3-rex-plugins@1.1.39/dist/rexvirtualjoystickplugin.min.js"></script>
@@ -76,6 +101,25 @@
         <button onclick="closeNpcDialog()">VERLASSEN</button>
     </div>
 
+    <!-- STATS UI -->
+    <div id="stats-ui">
+        <div class="stats-header">
+            <h2>STREET CRED <span id="street-cred-level">LVL 1</span></h2>
+            <div class="xp-bar"><div id="xp-fill" class="xp-fill"></div></div>
+            <p>Perk Points: <span id="perk-points">0</span></p>
+        </div>
+        <div class="stats-grid" id="stats-grid"></div>
+        <div class="skills-section">
+            <h3>SKILLS</h3>
+            <div class="skills-grid" id="skills-grid"></div>
+        </div>
+        <div class="perks-section">
+            <h3>PERKS</h3>
+            <div class="perks-grid" id="perks-grid"></div>
+        </div>
+        <button onclick="toggleStats()" style="margin-top: 15px; background: var(--neon-blue); color: #000; border:none; padding:10px; cursor:pointer; width:100%;">VERLASSEN [J]</button>
+    </div>
+
     <div id="mobile-controls">
         <div class="mobile-btn" id="btn-pickup">E</div>
         <div class="mobile-btn" id="btn-inv">INV</div>
@@ -89,7 +133,7 @@
         };
 
         const game = new Phaser.Game(config);
-        let socket, myPlayerContainer, joystick, myData, keys, keyE, keyI, keyEnter;
+        let socket, myPlayerContainer, joystick, myData, keys, keyE, keyI, keyJ, keySpace, keyEnter;
         let otherPlayers, walls, itemsOnGround = {}, npcsInGame = {};
         let isInvOpen = false, isChatting = false, isDialogOpen = false;
         let interactLabel, currentNearbyItem = null, currentNearbyNPC = null;
@@ -100,46 +144,230 @@
 
         function create() {
             const self = this;
-            const worldSize = 2000;
+            const worldSize = 3000;
             this.physics.world.setBounds(0, 0, worldSize, worldSize);
 
-            // --- 1. BODEN GRID (Straße) ---
-            let graphics = this.add.graphics();
-            graphics.lineStyle(1, 0x1a1a1a, 1);
-            for (let i = 0; i <= worldSize; i += 50) {
-                graphics.moveTo(i, 0); graphics.lineTo(i, worldSize);
-                graphics.moveTo(0, i); graphics.lineTo(worldSize, i);
-            }
-            graphics.strokePath();
+            // === WATSON - LITTLE CHINA MAP ===
+            
+            // --- Ground / Asphalt ---
+            this.add.rectangle(worldSize/2, worldSize/2, worldSize, worldSize, 0x0a0a0a).setDepth(-10);
+            
+            // --- Main Streets (Grid) ---
+            // Vertical streets
+            this.add.rectangle(300, 1500, 40, worldSize, 0x1a1a1a).setDepth(-5);
+            this.add.rectangle(700, 1500, 40, worldSize, 0x1a1a1a).setDepth(-5);
+            this.add.rectangle(1100, 1500, 40, worldSize, 0x1a1a1a).setDepth(-5);
+            this.add.rectangle(1500, 1500, 40, worldSize, 0x1a1a1a).setDepth(-5);
+            this.add.rectangle(1900, 1500, 40, worldSize, 0x1a1a1a).setDepth(-5);
+            this.add.rectangle(2300, 1500, 40, worldSize, 0x1a1a1a).setDepth(-5);
+            this.add.rectangle(2700, 1500, 40, worldSize, 0x1a1a1a).setDepth(-5);
+            
+            // Horizontal streets
+            this.add.rectangle(1500, 300, worldSize, 40, 0x1a1a1a).setDepth(-5);
+            this.add.rectangle(1500, 700, worldSize, 40, 0x1a1a1a).setDepth(-5);
+            this.add.rectangle(1500, 1100, worldSize, 40, 0x1a1a1a).setDepth(-5);
+            this.add.rectangle(1500, 1500, worldSize, 40, 0x1a1a1a).setDepth(-5);
+            this.add.rectangle(1500, 1900, worldSize, 40, 0x1a1a1a).setDepth(-5);
+            this.add.rectangle(1500, 2300, worldSize, 40, 0x1a1a1a).setDepth(-5);
+            this.add.rectangle(1500, 2700, worldSize, 40, 0x1a1a1a).setDepth(-5);
 
+            // Street lines (yellow center lines)
+            let streetGraphics = this.add.graphics();
+            streetGraphics.lineStyle(2, 0x333300, 1);
+            for (let i = 0; i <= worldSize; i += 400) {
+                if (i !== 150 && i !== 1850) { // Skip H10 area
+                    streetGraphics.lineBetween(i, 0, i, worldSize);
+                    streetGraphics.lineBetween(0, i, worldSize, i);
+                }
+            }
+            streetGraphics.setDepth(-4);
+
+            // === MEGABUILDING H10 (V's Home) ===
+            // Main building
+            let h10 = this.add.rectangle(150, 150, 280, 180, 0x1a1a22).setDepth(-1);
+            walls.add(this.add.rectangle(150, 50, 280, 20, 0x2a2a35)); // roof
+            walls.add(this.add.rectangle(20, 150, 20, 180, 0x2a2a35)); // left
+            walls.add(this.add.rectangle(280, 150, 20, 180, 0x2a2a35)); // right
+            walls.add(this.add.rectangle(150, 250, 280, 20, 0x2a2a35)); // bottom
+            
+            // H10 sign
+            this.add.text(150, 35, "MEGABUILDING H10", { fontSize: '14px', fill: '#ff003c', fontStyle: 'bold' }).setOrigin(0.5).setDepth(100);
+            
+            // Windows (lit up)
+            for (let wy = 70; wy < 230; wy += 40) {
+                for (let wx = 50; wx < 250; wx += 50) {
+                    let windowColor = Math.random() > 0.3 ? 0xffff00 : 0x333333;
+                    this.add.rectangle(wx, wy, 30, 25, windowColor).setDepth(0);
+                }
+            }
+            
+            // Door to street
+            this.add.rectangle(150, 250, 60, 15, 0x00ff00).setDepth(1);
+            this.add.text(150, 265, "ENTRANCE", { fontSize: '10px', fill: '#00ff00' }).setOrigin(0.5).setDepth(100);
+
+            // === TOM'S DINER ===
+            let diner = this.add.rectangle(450, 80, 160, 100, 0x2a1a0a).setDepth(-1);
+            walls.add(this.add.rectangle(450, 25, 160, 15, 0x3a2a1a));
+            walls.add(this.add.rectangle(375, 80, 15, 100, 0x3a2a1a));
+            walls.add(this.add.rectangle(525, 80, 15, 100, 0x3a2a1a));
+            walls.add(this.add.rectangle(450, 135, 160, 15, 0x3a2a1a));
+            
+            // Neon sign
+            this.add.text(450, 10, "TOM'S DINER", { fontSize: '16px', fill: '#ff6600', fontStyle: 'bold' }).setOrigin(0.5).setDepth(100);
+            // Diner windows
+            for (let wx = 390; wx < 510; wx += 40) {
+                this.add.rectangle(wx, 80, 25, 40, 0xffffaa).setDepth(0);
+            }
+
+            // === TANYA'S CYBERWARE SHOP ===
+            let cyberShop = this.add.rectangle(650, 150, 120, 80, 0x0a1a2a).setDepth(-1);
+            walls.add(this.add.rectangle(650, 105, 120, 15, 0x1a2a3a));
+            walls.add(this.add.rectangle(595, 150, 15, 80, 0x1a2a3a));
+            walls.add(this.add.rectangle(705, 150, 15, 80, 0x1a2a3a));
+            walls.add(this.add.rectangle(650, 195, 120, 15, 0x1a2a3a));
+            
+            this.add.text(650, 90, "CYBERWARE", { fontSize: '12px', fill: '#00f0ff', fontStyle: 'bold' }).setOrigin(0.5).setDepth(100);
+            // Cyber neon
+            this.add.rectangle(650, 115, 80, 5, 0x00f0ff).setDepth(1);
+
+            // === VIKTOR'S RIPPERDOC CLINIC ===
+            let ripperdoc = this.add.rectangle(1050, 500, 140, 100, 0x0a0a1a).setDepth(-1);
+            walls.add(this.add.rectangle(1050, 445, 140, 15, 0x1a1a2a));
+            walls.add(this.add.rectangle(985, 500, 15, 100, 0x1a1a2a));
+            walls.add(this.add.rectangle(1115, 500, 15, 100, 0x1a1a2a));
+            walls.add(this.add.rectangle(1050, 555, 140, 15, 0x1a1a2a));
+            
+            this.add.text(1050, 430, "VIKTOR'S CLINIC", { fontSize: '12px', fill: '#ff003c', fontStyle: 'bold' }).setOrigin(0.5).setDepth(100);
+            // Red cross
+            this.add.rectangle(1050, 500, 8, 40, 0xff003c).setDepth(1);
+            this.add.rectangle(1050, 500, 40, 8, 0xff003c).setDepth(1);
+
+            // === APARTMENT BLOCKS (Background Buildings) ===
+            // Building rows
+            const buildingColors = [0x1a1a22, 0x1a1a2a, 0x151520, 0x202028];
+            for (let bx = 0; bx < worldSize; bx += 200) {
+                for (let by = 0; by < worldSize; by += 200) {
+                    // Skip street areas and H10
+                    if ((bx < 280 && by < 280) || bx % 400 < 40 || by % 400 < 40) continue;
+                    
+                    let bldg = this.add.rectangle(bx + 100, by + 100, 150 + Math.random() * 50, 120 + Math.random() * 40, 
+                        buildingColors[Math.floor(Math.random() * buildingColors.length)]).setDepth(-2);
+                    
+                    // Random windows
+                    for (let wy = 20; wy < 100; wy += 25) {
+                        for (let wx = 15; wx < 130; wx += 30) {
+                            if (Math.random() > 0.4) {
+                                let winColor = Math.random() > 0.5 ? 0xffff00 : (Math.random() > 0.5 ? 0x00ffff : 0xff6600);
+                                this.add.rectangle(bx + 100 - 60 + wx, by + 100 - 50 + wy, 20, 15, winColor).setDepth(-1);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // === AMBIENT NPCs (Walking pedestrians) ===
+            let npcGraphics = this.add.graphics();
+            npcGraphics.fillStyle(0x444455, 1);
+            npcGraphics.fillCircle(0, 0, 8);
+            npcGraphics.setDepth(10);
+            
+            // Create walking NPC sprites
+            this.walkingNPCs = [];
+            const npcColors = [0xff6600, 0x00ff00, 0x00ffff, 0xff00ff, 0xffff00, 0xff003c];
+            for (let i = 0; i < 20; i++) {
+                let nx = Math.random() * worldSize;
+                let ny = Math.random() * worldSize;
+                // Keep off streets
+                if (nx % 400 < 40 || ny % 400 < 40) { nx += 100; ny += 100; }
+                
+                let npc = this.add.container(nx, ny);
+                let body = this.add.rectangle(0, 0, 16, 32, npcColors[Math.floor(Math.random() * npcColors.length)]);
+                let head = this.add.circle(0, -22, 6, 0xcccccc);
+                npc.add([body, head]);
+                npc.setDepth(10);
+                
+                // Random walking properties
+                npc.walkSpeed = 20 + Math.random() * 30;
+                npc.walkDir = Math.random() * Math.PI * 2;
+                npc.walkTimer = Math.random() * 200;
+                npc.walkChangeTimer = 100 + Math.random() * 200;
+                
+                this.walkingNPCs.push(npc);
+            }
+
+            // === INTERACTION ZONES (Enterable buildings) ===
+            this.buildingZones = {
+                'h10': { x: 150, y: 150, width: 280, height: 180, name: "Megabuilding H10", interior: true },
+                'diner': { x: 450, y: 80, width: 160, height: 100, name: "Tom's Diner", interior: true },
+                'cyber': { x: 650, y: 150, width: 120, height: 80, name: "Cyberware Shop", interior: true },
+                'ripperdoc': { x: 1050, y: 500, width: 140, height: 100, name: "Viktor's Clinic", interior: true }
+            };
+
+            // Building entrance indicators
+            Object.keys(this.buildingZones).forEach(key => {
+                let b = this.buildingZones[key];
+                let entrance = this.add.rectangle(b.x, b.y + b.height/2 + 10, 40, 8, 0x00ff00, 0.5).setDepth(5);
+                entrance.buildingKey = key;
+            });
+
+            // === PROPS ===
+            // Dumpsters
+            this.add.rectangle(250, 350, 35, 25, 0x333333).setDepth(-1);
+            this.add.rectangle(700, 450, 35, 25, 0x333333).setDepth(-1);
+            this.add.rectangle(1200, 300, 35, 25, 0x333333).setDepth(-1);
+            
+            // Parked cars
+            this.add.rectangle(350, 500, 70, 35, 0x1a1a2a).setDepth(-1);
+            this.add.rectangle(850, 200, 70, 35, 0x2a1a1a).setDepth(-1);
+            this.add.rectangle(1100, 800, 70, 35, 0x0a1a2a).setDepth(-1);
+            this.add.rectangle(600, 350, 90, 40, 0x0a0a1a).setDepth(-1); // Arasaka car
+            this.add.text(600, 350, "ARASAKA", { fontSize: '8px', fill: '#ff003c' }).setOrigin(0.5).setDepth(1);
+            
+            // Billboards
+            this.add.rectangle(1300, 150, 100, 60, 0x1a1a1a).setDepth(-1);
+            this.add.text(1300, 130, "MILITECH", { fontSize: '12px', fill: '#00ff00' }).setOrigin(0.5).setDepth(100);
+            
+            // Vending machines
+            this.add.rectangle(320, 280, 20, 35, 0x222233).setDepth(-1);
+            this.add.rectangle(800, 380, 20, 35, 0x222233).setDepth(-1);
+
+            // === STREET LIGHTS ===
+            for (let sl = 0; sl < worldSize; sl += 300) {
+                this.add.circle(sl + 150, 350, 4, 0xffffaa).setDepth(-1);
+                this.add.circle(sl + 150, 750, 4, 0xffffaa).setDepth(-1);
+                this.add.circle(sl + 150, 1150, 4, 0xffffaa).setDepth(-1);
+                this.add.circle(sl + 150, 1550, 4, 0xffffaa).setDepth(-1);
+                this.add.circle(sl + 150, 1950, 4, 0xffffaa).setDepth(-1);
+                this.add.circle(sl + 150, 2350, 4, 0xffffaa).setDepth(-1);
+                this.add.circle(sl + 150, 2750, 4, 0xffffaa).setDepth(-1);
+            }
+
+            // === FOG / ATMOSPHERE ===
+            // Add some fog at edges
+            let fogGraphics = this.add.graphics();
+            fogGraphics.fillStyle(0x050510, 0.3);
+            fogGraphics.fillRect(0, 0, worldSize, 100);
+            fogGraphics.fillRect(0, worldSize-100, worldSize, 100);
+            fogGraphics.fillRect(0, 0, 100, worldSize);
+            fogGraphics.fillRect(worldSize-100, 0, 100, worldSize);
+            fogGraphics.setDepth(-1);
+
+            interactLabel = this.add.text(0, 0, "", { fontSize: '14px', fill: '#ffff00', backgroundColor: '#000' }).setOrigin(0.5).setVisible(false).setDepth(1000);
+
+            // Physics groups
             walls = this.physics.add.staticGroup();
             otherPlayers = this.physics.add.group();
 
-            // --- 2. V's APARTMENT (Megabuilding H10) ---
-            // Ein Raum, der von Wänden umschlossen ist, mit einem Ausgang unten rechts.
-            // Boden des Apartments (dunkler Teppich)
-            this.add.rectangle(150, 150, 300, 200, 0x221111).setDepth(-1); 
-            
-            // Wände (Grau-metallisch)
-            walls.add(this.add.rectangle(150, 50, 300, 20, 0x555555)); // Oben
-            walls.add(this.add.rectangle(0, 150, 20, 200, 0x555555));  // Links
-            walls.add(this.add.rectangle(300, 150, 20, 200, 0x555555)); // Rechts
-            walls.add(this.add.rectangle(100, 250, 200, 20, 0x555555)); // Unten Links (Türlücke bei X:200 bis X:300)
-
-            // Apartment Deko (Text-Emojis als Platzhalter)
-            this.add.text(40, 80, "🛏️", { fontSize: '40px' }); // Bett
-            this.add.text(240, 80, "💻", { fontSize: '30px' }); // Computer Terminal
-            this.add.text(40, 200, "📦", { fontSize: '30px' }); // Stash/Kiste
-
-            // "Coast" Area weiter draußen (Deko-Barrikaden)
-            walls.add(this.add.rectangle(600, 500, 200, 20, 0x333333));
-            walls.add(this.add.rectangle(1000, 600, 200, 20, 0x113333)); // Ripperdoc Clinic Wand
-
-            interactLabel = this.add.text(0, 0, "", { fontSize: '14px', fill: '#ffff00', backgroundColor: '#000' }).setOrigin(0.5).setVisible(false).setDepth(1000);
+            // === INDOOR MODE (for entering buildings) ===
+            this.inBuilding = false;
+            this.currentBuilding = null;
+            this.indoorOverlay = null;
 
             this.keys = this.input.keyboard.addKeys({ up: Phaser.Input.Keyboard.KeyCodes.W, down: Phaser.Input.Keyboard.KeyCodes.S, left: Phaser.Input.Keyboard.KeyCodes.A, right: Phaser.Input.Keyboard.KeyCodes.D });
             keyE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
             keyI = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.I);
+            keyJ = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.J);
+            keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
             keyEnter = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
 
             if (this.sys.game.device.input.touch) {
@@ -205,6 +433,30 @@
             self.socket.on('updateInventory', (newInv) => { myData.inventory = newInv; });
             self.socket.on('playerMoved', (pInfo) => { otherPlayers.getChildren().forEach((p) => { if (pInfo.id === p.playerId) p.setPosition(pInfo.x, pInfo.y); }); });
             self.socket.on('playerDisconnected', (id) => { otherPlayers.getChildren().forEach((p) => { if(p.playerId === id) p.destroy(); }); });
+            
+            // === STATS SYSTEM SOCKET HANDLERS ===
+            self.socket.on('playerStats', (stats) => { 
+                playerStatsData = stats; 
+                myData.stats = stats.stats;
+                myData.skills = stats.skills;
+                myData.perks = stats.perks;
+                myData.streetCred = stats.streetCred;
+                myData.perkPoints = stats.perkPoints;
+                myData.derived = stats.derived;
+            });
+            
+            self.socket.on('perkTrees', (trees) => { perkTreesData = trees; });
+            
+            self.socket.on('levelUp', (data) => {
+                if (data.type === 'levelUp') {
+                    showNotification(`🎉 STREET CRED LVL ${data.newLevel}! +${data.perkPoints} Perk Point(s)`);
+                } else if (data.type === 'statLevelUp') {
+                    showNotification(`📈 ${data.category.toUpperCase()} increased to ${data.newValue}!`);
+                } else if (data.type === 'skillLevelUp') {
+                    showNotification(`💪 ${data.category.toUpperCase()} skill LVL ${data.newLevel}!`);
+                }
+            });
+            // === END STATS SOCKET HANDLERS ===
         }
 
         function addPlayer(self, playerInfo) {
@@ -230,6 +482,94 @@
             if(isInvOpen) updateInventoryUI();
         }
 
+        // === STATS SYSTEM FUNCTIONS ===
+        let playerStatsData = null;
+        let perkTreesData = null;
+
+        function toggleStats() {
+            if(isDialogOpen) return;
+            isInvOpen = !isInvOpen;
+            document.getElementById('stats-ui').style.display = isInvOpen ? 'block' : 'none';
+            if(isInvOpen && playerStatsData) updateStatsUI();
+        }
+
+        function updateStatsUI() {
+            if (!playerStatsData) return;
+            
+            // Street Cred
+            document.getElementById('street-cred-level').innerText = 'LVL ' + playerStatsData.streetCred;
+            document.getElementById('perk-points').innerText = playerStatsData.perkPoints;
+            
+            // XP Bar
+            const currentLevelXp = XP_PER_LEVEL[playerStatsData.streetCred - 1] || 0;
+            const nextLevelXp = XP_PER_LEVEL[playerStatsData.streetCred] || XP_PER_LEVEL[XP_PER_LEVEL.length - 1];
+            const xpProgress = ((playerStatsData.totalXp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100;
+            document.getElementById('xp-fill').style.width = Math.min(100, xpProgress) + '%';
+            
+            // Stats Grid
+            const statsGrid = document.getElementById('stats-grid');
+            statsGrid.innerHTML = '';
+            Object.keys(playerStatsData.stats).forEach(statKey => {
+                const stat = playerStatsData.stats[statKey];
+                const div = document.createElement('div');
+                div.className = 'stat-box';
+                div.innerHTML = `
+                    <div class="stat-name">${stat.name}</div>
+                    <div class="stat-value">${stat.value}</div>
+                    <div class="stat-desc">${stat.description}</div>
+                `;
+                statsGrid.appendChild(div);
+            });
+            
+            // Skills Grid
+            const skillsGrid = document.getElementById('skills-grid');
+            skillsGrid.innerHTML = '';
+            Object.keys(playerStatsData.skills).forEach(skillKey => {
+                const skill = playerStatsData.skills[skillKey];
+                const div = document.createElement('div');
+                div.className = 'skill-box';
+                div.innerHTML = `
+                    <div class="skill-name">${skillKey.toUpperCase()}</div>
+                    <div class="skill-level">LVL ${skill.level}</div>
+                `;
+                skillsGrid.appendChild(div);
+            });
+            
+            // Perks Grid
+            const perksGrid = document.getElementById('perks-grid');
+            perksGrid.innerHTML = '';
+            if (perkTreesData) {
+                Object.keys(perkTreesData).forEach(statKey => {
+                    perkTreesData[statKey].forEach(perk => {
+                        const owned = playerStatsData.perks.includes(perk.id);
+                        const canBuy = playerStatsData.perkPoints > 0 && 
+                                      playerStatsData.stats[statKey].value >= perk.reqStat && 
+                                      !owned;
+                        const div = document.createElement('div');
+                        div.className = 'perk-box' + (owned ? ' owned' : '');
+                        div.innerHTML = `
+                            <div class="perk-name">${perk.name}</div>
+                            <div class="perk-desc">${perk.desc}</div>
+                            <div class="perk-req">${statKey} ${perk.reqStat}+</div>
+                        `;
+                        if (canBuy) {
+                            div.onclick = () => purchasePerk(statKey, perk.id);
+                            div.style.borderColor = '#ffff00';
+                        }
+                        perksGrid.appendChild(div);
+                    });
+                });
+            }
+        }
+
+        function purchasePerk(stat, perkId) {
+            if (socket) socket.emit('purchasePerk', { stat, perkId });
+        }
+
+        // XP thresholds (must match server)
+        const XP_PER_LEVEL = [0, 100, 250, 500, 800, 1200, 1700, 2300, 3000, 4000, 5500];
+        // === END STATS SYSTEM ===
+
         function updateInventoryUI() {
             const grid = document.getElementById('inv-grid');
             grid.innerHTML = ""; 
@@ -254,6 +594,96 @@
         function closeNpcDialog() {
             isDialogOpen = false;
             document.getElementById('npc-ui').style.display = 'none';
+        }
+
+        function showNotification(text) {
+            const notif = document.createElement('div');
+            notif.style.cssText = 'position:absolute;top:20%;left:50%;transform:translateX(-50%);background:rgba(157,0,255,0.9);color:#fff;padding:15px 30px;border:2px solid #ff00ff;font-size:16px;z-index:9999;text-align:center;animation:fadeOut 3s forwards;';
+            notif.innerText = text;
+            document.body.appendChild(notif);
+            setTimeout(() => notif.remove(), 3000);
+        }
+
+        function enterBuilding(self, building) {
+            if (self.inBuilding) {
+                // Exit building
+                exitBuilding(self);
+                return;
+            }
+            
+            self.inBuilding = true;
+            self.currentBuilding = building;
+            
+            // Create indoor effect
+            // 1. Translucent ceiling
+            self.indoorOverlay = self.add.rectangle(self.cameras.main.scrollX + self.cameras.main.width/2, 
+                self.cameras.main.scrollY + self.cameras.main.height/2, 
+                self.cameras.main.width, self.cameras.main.height, 0x000000, 0.3).setDepth(500);
+            
+            // 2. Blur effect on surroundings (simulated with dark overlay)
+            let blurOverlay = self.add.rectangle(self.cameras.main.scrollX + self.cameras.main.width/2, 
+                self.cameras.main.scrollY + self.cameras.main.height/2, 
+                self.cameras.main.width, self.cameras.main.height, 0x000000, 0.6).setDepth(499);
+            
+            // 3. Show building interior text
+            let interiorText = self.add.text(self.cameras.main.scrollX + self.cameras.main.width/2, 
+                self.cameras.main.scrollY + 100, 
+                "=== " + building.name.toUpperCase() + " ===\n\n[SPACE] Exit Building", 
+                { fontSize: '20px', fill: '#00ff00', align: 'center', backgroundColor: '#000000aa' })
+                .setOrigin(0.5).setDepth(501);
+            
+            self.indoorElements = [self.indoorOverlay, blurOverlay, interiorText];
+            
+            showNotification("Entered " + building.name);
+        }
+
+        function exitBuilding(self) {
+            if (!self.inBuilding) return;
+            
+            self.inBuilding = false;
+            
+            // Remove indoor effects
+            if (self.indoorElements) {
+                self.indoorElements.forEach(el => el.destroy());
+                self.indoorElements = null;
+            }
+            
+            showNotification("Exited " + self.currentBuilding.name);
+            self.currentBuilding = null;
+        }
+
+        function performAttack(self) {
+            if (!myData || !myData.derived) return;
+            
+            // Simple attack animation - flash player
+            const originalColor = myPlayerContainer.list[0].fillColor;
+            myPlayerContainer.list[0].setFillStyle(0xff003c);
+            setTimeout(() => myPlayerContainer.list[0].setFillStyle(originalColor), 150);
+            
+            // Check for nearby enemies (for now, just give XP for attacking)
+            // In a full implementation, you'd have enemy objects to check against
+            const attackRange = 60;
+            
+            // Award XP based on stats
+            if (myData.stats && myData.skills) {
+                // Determine weapon type based on inventory
+                let weaponType = 'brawling';
+                if (myData.inventory) {
+                    const weapon = myData.inventory.find(i => i.type === 'Weapon');
+                    if (weapon && weapon.name.toLowerCase().includes('pistol')) weaponType = 'handguns';
+                    else if (weapon && weapon.name.toLowerCase().includes('rifle')) weaponType = 'assault';
+                    else if (weapon && weapon.name.toLowerCase().includes('katana') || weapon && weapon.name.toLowerCase().includes('blade')) weaponType = 'blades';
+                }
+                
+                // Send XP to server
+                self.socket.emit('enemyDefeated', {
+                    xp: 10,
+                    weaponType: weaponType,
+                    stat: 'reflexes'
+                });
+                
+                showNotification('⚔️ Attack! +10 XP');
+            }
         }
 
         function update() {
@@ -287,10 +717,21 @@
                 }
 
                 if (Phaser.Input.Keyboard.JustDown(keyI)) toggleInv();
+                if (Phaser.Input.Keyboard.JustDown(keyJ)) toggleStats();
+                
+                // SPACE - Attack or Exit building
+                if (Phaser.Input.Keyboard.JustDown(keySpace)) {
+                    if (this.inBuilding) {
+                        exitBuilding(this);
+                    } else {
+                        performAttack(this);
+                    }
+                }
 
                 // Check Items & NPCs Nähe
                 currentNearbyItem = null;
                 currentNearbyNPC = null;
+                let nearbyBuilding = null;
                 
                 Object.values(itemsOnGround).forEach(sprite => {
                     if(Phaser.Math.Distance.Between(myPlayerContainer.x, myPlayerContainer.y, sprite.x, sprite.y) < 60) currentNearbyItem = sprite;
@@ -300,6 +741,14 @@
                     if(Phaser.Math.Distance.Between(myPlayerContainer.x, myPlayerContainer.y, sprite.x, sprite.y) < 70) currentNearbyNPC = sprite.npcData;
                 });
 
+                // Check for building entrances
+                Object.keys(this.buildingZones).forEach(key => {
+                    let b = this.buildingZones[key];
+                    if (Phaser.Math.Distance.Between(myPlayerContainer.x, myPlayerContainer.y, b.x, b.y + b.height/2 + 20) < 50) {
+                        nearbyBuilding = b;
+                    }
+                });
+
                 // Zeige Label (Item hat Priorität vor NPC beim Text)
                 if(currentNearbyItem) {
                     interactLabel.setPosition(myPlayerContainer.x, myPlayerContainer.y - 55).setText("[E] " + currentNearbyItem.itemName).setVisible(true);
@@ -307,8 +756,33 @@
                 } else if(currentNearbyNPC) {
                     interactLabel.setPosition(myPlayerContainer.x, myPlayerContainer.y - 55).setText("[E] Rede mit " + currentNearbyNPC.name).setVisible(true);
                     if (Phaser.Input.Keyboard.JustDown(keyE)) openNpcDialog(currentNearbyNPC);
+                } else if(nearbyBuilding) {
+                    interactLabel.setPosition(myPlayerContainer.x, myPlayerContainer.y - 55).setText("[E] Enter " + nearbyBuilding.name).setVisible(true);
+                    if (Phaser.Input.Keyboard.JustDown(keyE)) enterBuilding(this, nearbyBuilding);
                 } else { 
                     interactLabel.setVisible(false); 
+                }
+                
+                // Update walking NPCs
+                if (this.walkingNPCs) {
+                    this.walkingNPCs.forEach(npc => {
+                        npc.walkTimer--;
+                        npc.walkChangeTimer--;
+                        
+                        if (npc.walkChangeTimer <= 0) {
+                            npc.walkDir = Math.random() * Math.PI * 2;
+                            npc.walkChangeTimer = 100 + Math.random() * 200;
+                        }
+                        
+                        if (npc.walkTimer > 0) {
+                            npc.x += Math.cos(npc.walkDir) * npc.walkSpeed * 0.01;
+                            npc.y += Math.sin(npc.walkDir) * npc.walkSpeed * 0.01;
+                            
+                            // Keep in bounds
+                            npc.x = Math.max(50, Math.min(2950, npc.x));
+                            npc.y = Math.max(50, Math.min(2950, npc.y));
+                        }
+                    });
                 }
             } else if (myPlayerContainer) {
                 myPlayerContainer.body.setVelocity(0); // Immer stoppen bei UI
