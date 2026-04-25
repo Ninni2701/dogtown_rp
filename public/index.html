@@ -2,48 +2,60 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Dogtown Edgerunners RP</title>
     <style>
         body { margin: 0; padding: 0; background-color: #000; overflow: hidden; font-family: 'Courier New', monospace; }
         canvas { display: block; image-rendering: pixelated; }
 
+        /* Login Screen */
         #ui-layer {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: rgba(10, 10, 10, 0.95); padding: 30px; border: 2px solid #00ff00;
-            color: #00ff00; text-align: center; z-index: 20;
+            color: #00ff00; text-align: center; z-index: 50; width: 80%; max-width: 400px;
         }
-        input { background: #000; color: #00ff00; border: 1px solid #00ff00; padding: 10px; margin-bottom: 20px; font-family: 'Courier New'; text-align: center;}
+        input { background: #000; color: #00ff00; border: 1px solid #00ff00; padding: 10px; margin-bottom: 20px; font-family: 'Courier New'; text-align: center; width: 90%;}
         button { background: #00ff00; color: #000; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; font-family: 'Courier New';}
 
+        /* Inventar */
         #inventory-ui {
-            display: none; position: absolute; top: 10%; left: 10%; width: 80%; height: 80%;
-            background: rgba(20, 0, 0, 0.9); border: 2px solid #ff003c;
-            color: #ff003c; z-index: 30; padding: 20px; box-shadow: 0 0 20px rgba(255, 0, 60, 0.5);
+            display: none; position: absolute; top: 5%; left: 5%; width: 90%; height: 80%;
+            background: rgba(20, 0, 0, 0.95); border: 2px solid #ff003c;
+            color: #ff003c; z-index: 100; padding: 10px; box-shadow: 0 0 20px rgba(255, 0, 60, 0.5);
         }
-        .inv-header { border-bottom: 2px solid #ff003c; padding-bottom: 10px; margin-bottom: 20px; font-size: 24px; font-weight: bold; }
-        .inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; overflow-y: auto; max-height: 80%; }
-        .inv-item { background: rgba(255, 0, 60, 0.1); border: 1px solid #ff003c; height: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
-        .inv-item:hover { background: rgba(255, 0, 60, 0.3); transform: scale(1.05); color: #fff; }
-        .inv-item span { font-size: 30px; }
-        .inv-item p { font-size: 10px; margin: 5px 0 0 0; text-align: center; }
-        .hint { position: absolute; bottom: 10px; left: 10px; color: #00ff00; font-size: 12px; }
+        .inv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; overflow-y: auto; max-height: 70%; }
+        .inv-item { background: rgba(255, 0, 60, 0.1); border: 1px solid #ff003c; height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+        /* Mobile Steuerung */
+        #mobile-controls {
+            position: absolute; bottom: 20px; right: 20px; z-index: 40; display: flex; gap: 10px;
+        }
+        .mobile-btn {
+            width: 60px; height: 60px; background: rgba(0, 255, 0, 0.2); border: 2px solid #00ff00;
+            border-radius: 50%; color: #00ff00; font-weight: bold; display: flex; align-items: center; justify-content: center;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/phaser3-rex-plugins@1.1.39/dist/rexvirtualjoystickplugin.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
     <div id="ui-layer">
         <h1>DOGTOWN TERMINAL</h1>
-        <input type="text" id="username" placeholder="Name..." maxlength="15"><br>
-        <button id="start-btn">CONNECT</button>
+        <input type="text" id="username" placeholder="Runner Name..." maxlength="15"><br>
+        <button id="start-btn">NET RUN STARTEN</button>
     </div>
 
     <div id="inventory-ui">
-        <div class="inv-header">INVENTORY // SYSTEM_OS_V.2077</div>
+        <h2 style="border-bottom: 2px solid #ff003c">INVENTORY</h2>
         <div class="inv-grid" id="inv-grid"></div>
-        <div class="hint">DRÜCKE [I] ZUM SCHLIESSEN</div>
+        <button onclick="toggleInv()" style="margin-top: 20px; background: #ff003c">SCHLIESSEN</button>
+    </div>
+
+    <div id="mobile-controls">
+        <div class="mobile-btn" id="btn-pickup">E</div>
+        <div class="mobile-btn" id="btn-inv">INV</div>
     </div>
 
     <script>
@@ -54,33 +66,36 @@
         };
 
         const game = new Phaser.Game(config);
-        let socket, myPlayerContainer, cursors, myData, keyE;
+        let socket, myPlayerContainer, joystick, myData;
         let otherPlayers, walls, itemsOnGround = {};
         let isInvOpen = false;
-        let interactText; // Der Text "E - Aufheben"
+        let nearbyItem = null;
 
-        function preload() {}
+        function preload() {
+            // Plugin für den Joystick laden
+            this.load.plugin('rexvirtualjoystickplugin', 'https://cdn.jsdelivr.net/npm/phaser3-rex-plugins@1.1.39/dist/rexvirtualjoystickplugin.min.js', true);
+        }
 
         function create() {
             const self = this;
             otherPlayers = this.physics.add.group();
             walls = this.physics.add.staticGroup();
-            
-            // Unsere Test-Wände
-            walls.add(this.add.rectangle(400, 300, 200, 40, 0xff00ff));
-            walls.add(this.add.rectangle(150, 150, 40, 150, 0x00ffff));
+            walls.add(this.add.rectangle(400, 300, 150, 30, 0xff00ff));
 
-            // UI Text für Interaktionen (unsichtbar am Anfang)
-            interactText = this.add.text(0, 0, "[E] Aufheben", { fontSize: '14px', fill: '#ffff00', backgroundColor: '#000' }).setOrigin(0.5).setVisible(false);
-
-            cursors = this.input.keyboard.createCursorKeys();
-            keyE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-
-            this.input.keyboard.on('keydown-I', () => {
-                isInvOpen = !isInvOpen;
-                document.getElementById('inventory-ui').style.display = isInvOpen ? 'block' : 'none';
-                if(isInvOpen) updateInventoryUI();
+            // Joystick erstellen (nur sichtbar auf Touch-Geräten oder dauerhaft)
+            joystick = this.plugins.get('rexvirtualjoystickplugin').add(this, {
+                x: 100, y: window.innerHeight - 100, radius: 50,
+                base: this.add.circle(0, 0, 50, 0x888888, 0.5),
+                thumb: this.add.circle(0, 0, 25, 0x00ff00, 0.8),
             });
+
+            // Mobile Buttons Event
+            document.getElementById('btn-inv').onclick = () => toggleInv();
+            document.getElementById('btn-pickup').onclick = () => {
+                if(nearbyItem) self.socket.emit('pickupItem', nearbyItem.itemId);
+            };
+
+            this.input.keyboard.on('keydown-I', () => toggleInv());
 
             document.getElementById('start-btn').onclick = () => {
                 document.getElementById('ui-layer').style.display = 'none';
@@ -88,6 +103,12 @@
                 this.socket.emit('joinGame', { name: document.getElementById('username').value || "Choom" });
                 setupSocketEvents(self);
             };
+        }
+
+        function toggleInv() {
+            isInvOpen = !isInvOpen;
+            document.getElementById('inventory-ui').style.display = isInvOpen ? 'block' : 'none';
+            if(isInvOpen) updateInventoryUI();
         }
 
         function setupSocketEvents(self) {
@@ -102,47 +123,28 @@
                 });
             });
 
-            // Lade die Items auf der Map
             self.socket.on('currentItems', (items) => {
                 Object.keys(items).forEach(id => {
                     const item = items[id];
-                    // Wir zeichnen das Emoji als Text in die Spielwelt
                     let sprite = self.add.text(item.x, item.y, item.icon, { fontSize: '24px' }).setOrigin(0.5);
                     sprite.itemId = item.id;
-                    sprite.itemName = item.name;
                     itemsOnGround[item.id] = sprite;
                 });
             });
 
-            // Wenn ein Item von der Map verschwindet (aufgehoben wurde)
             self.socket.on('itemRemoved', (itemId) => {
-                if(itemsOnGround[itemId]) {
-                    itemsOnGround[itemId].destroy();
-                    delete itemsOnGround[itemId];
-                }
+                if(itemsOnGround[itemId]) { itemsOnGround[itemId].destroy(); delete itemsOnGround[itemId]; }
             });
 
-            // Wenn der Server uns unser neues Inventar schickt
-            self.socket.on('updateInventory', (newInventory) => {
-                myData.inventory = newInventory;
-                if(isInvOpen) updateInventoryUI(); // Direkt aktualisieren, falls offen
-            });
-
-            self.socket.on('newPlayer', (playerInfo) => { addOtherPlayers(self, playerInfo); });
-            self.socket.on('playerMoved', (playerInfo) => {
-                otherPlayers.getChildren().forEach((p) => { if (playerInfo.id === p.playerId) p.setPosition(playerInfo.x, playerInfo.y); });
-            });
-            self.socket.on('playerDisconnected', (id) => {
-                otherPlayers.getChildren().forEach((p) => { if(p.playerId === id) p.destroy(); });
+            self.socket.on('updateInventory', (newInv) => { myData.inventory = newInv; });
+            self.socket.on('playerMoved', (pInfo) => {
+                otherPlayers.getChildren().forEach((p) => { if (pInfo.id === p.playerId) p.setPosition(pInfo.x, pInfo.y); });
             });
         }
 
         function addPlayer(self, playerInfo) {
             myPlayerContainer = self.add.container(playerInfo.x, playerInfo.y);
-            const rect = self.add.rectangle(0, 0, 32, 32, 0x00ff00);
-            const label = self.add.text(0, -25, playerInfo.name, { fontSize: '12px', fill: '#00ff00' }).setOrigin(0.5);
-            myPlayerContainer.add([rect, label]);
-            
+            myPlayerContainer.add([self.add.rectangle(0, 0, 32, 32, 0x00ff00), self.add.text(0, -25, playerInfo.name, { fontSize: '12px', fill: '#00ff00' }).setOrigin(0.5)]);
             self.physics.world.enable(myPlayerContainer);
             myPlayerContainer.body.setCollideWorldBounds(true);
             self.physics.add.collider(myPlayerContainer, walls);
@@ -158,12 +160,11 @@
         function updateInventoryUI() {
             const grid = document.getElementById('inv-grid');
             grid.innerHTML = ""; 
-            if(!myData || !myData.inventory) return;
-
+            if(!myData.inventory) return;
             myData.inventory.forEach(item => {
                 const div = document.createElement('div');
                 div.className = "inv-item";
-                div.innerHTML = `<span>${item.icon}</span><p>${item.name}</p>`;
+                div.innerHTML = `<span>${item.icon}</span><p style="font-size:8px">${item.name}</p>`;
                 grid.appendChild(div);
             });
         }
@@ -173,37 +174,27 @@
                 const speed = 200;
                 myPlayerContainer.body.setVelocity(0);
                 
-                if (cursors.left.isDown) myPlayerContainer.body.setVelocityX(-speed);
-                else if (cursors.right.isDown) myPlayerContainer.body.setVelocityX(speed);
-                if (cursors.up.isDown) myPlayerContainer.body.setVelocityY(-speed);
-                else if (cursors.down.isDown) myPlayerContainer.body.setVelocityY(speed);
+                // Joystick ODER Tastatur
+                if (joystick.force > 0) {
+                    this.physics.velocityFromAngle(joystick.angle, joystick.force * 2, myPlayerContainer.body.velocity);
+                } else {
+                    const cursors = this.input.keyboard.createCursorKeys();
+                    if (cursors.left.isDown) myPlayerContainer.body.setVelocityX(-speed);
+                    else if (cursors.right.isDown) myPlayerContainer.body.setVelocityX(speed);
+                    if (cursors.up.isDown) myPlayerContainer.body.setVelocityY(-speed);
+                    else if (cursors.down.isDown) myPlayerContainer.body.setVelocityY(speed);
+                }
 
                 if (myPlayerContainer.body.velocity.x !== 0 || myPlayerContainer.body.velocity.y !== 0) {
                     this.socket.emit('playerMovement', { x: myPlayerContainer.x, y: myPlayerContainer.y });
                 }
 
-                // Checken, ob wir in der Nähe eines Items sind
-                let nearbyItem = null;
-                Object.values(itemsOnGround).forEach(itemSprite => {
-                    const dist = Phaser.Math.Distance.Between(myPlayerContainer.x, myPlayerContainer.y, itemSprite.x, itemSprite.y);
-                    if(dist < 40) nearbyItem = itemSprite; // Radius von 40 Pixeln
+                // Check Item-Nähe für Mobile Button
+                nearbyItem = null;
+                Object.values(itemsOnGround).forEach(sprite => {
+                    if(Phaser.Math.Distance.Between(myPlayerContainer.x, myPlayerContainer.y, sprite.x, sprite.y) < 50) nearbyItem = sprite;
                 });
-
-                if(nearbyItem) {
-                    interactText.setPosition(myPlayerContainer.x, myPlayerContainer.y - 50);
-                    interactText.setText("[E] " + nearbyItem.itemName);
-                    interactText.setVisible(true);
-
-                    // Aufheben, wenn E gedrückt wird
-                    if (Phaser.Input.Keyboard.JustDown(keyE)) {
-                        this.socket.emit('pickupItem', nearbyItem.itemId);
-                    }
-                } else {
-                    interactText.setVisible(false);
-                }
-
-            } else if (myPlayerContainer) {
-                myPlayerContainer.body.setVelocity(0);
+                document.getElementById('btn-pickup').style.opacity = nearbyItem ? "1" : "0.3";
             }
         }
     </script>
