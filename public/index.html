@@ -5,37 +5,45 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Dogtown Edgerunners RP</title>
     <style>
-        body { margin: 0; padding: 0; background-color: #000; overflow: hidden; font-family: 'Courier New', monospace; }
+        :root {
+            --neon-green: #00ff00;
+            --neon-red: #ff003c;
+            --neon-blue: #00f0ff;
+            --dark-bg: #050505;
+        }
+
+        body { margin: 0; padding: 0; background-color: var(--dark-bg); overflow: hidden; font-family: 'Courier New', monospace; }
         canvas { display: block; image-rendering: pixelated; }
 
-        /* Login Screen */
+        /* --- LOGIN TERMINAL --- */
         #ui-layer {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(10, 10, 10, 0.95); padding: 30px; border: 2px solid #00ff00;
-            color: #00ff00; text-align: center; z-index: 100; width: 80%; max-width: 400px;
-            box-shadow: 0 0 20px #00ff00;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(0,255,0,0.05) 0%, rgba(0,0,0,1) 80%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000;
         }
-        input { background: #000; color: #00ff00; border: 1px solid #00ff00; padding: 10px; margin-bottom: 20px; font-family: 'Courier New'; text-align: center; width: 90%;}
-        button { background: #00ff00; color: #000; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; font-family: 'Courier New';}
+        .terminal-window { background: rgba(10, 10, 10, 0.9); border: 1px solid var(--neon-green); padding: 40px; text-align: center; box-shadow: 0 0 30px rgba(0, 255, 0, 0.2); width: 85%; max-width: 450px; }
+        h1 { color: var(--neon-green); text-transform: uppercase; letter-spacing: 5px; margin-bottom: 30px; text-shadow: 2px 2px var(--neon-red); }
+        input { background: #000; color: var(--neon-green); border: 1px solid var(--neon-green); padding: 15px; margin-bottom: 20px; font-family: 'Courier New'; width: 100%; box-sizing: border-box; outline: none; font-size: 16px; }
+        button.start-btn { background: var(--neon-green); color: #000; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; width: 100%; text-transform: uppercase; }
 
-        /* Inventar Style */
-        #inventory-ui {
-            display: none; position: absolute; top: 10%; left: 10%; width: 80%; height: 80%;
-            background: rgba(30, 0, 5, 0.95); border: 2px solid #ff003c;
-            color: #ff003c; z-index: 200; padding: 20px; box-shadow: 0 0 25px rgba(255, 0, 60, 0.7);
-        }
+        /* --- CHAT & INVENTORY --- */
+        #chat-container { position: absolute; bottom: 20px; left: 20px; width: 300px; height: 180px; background: rgba(0, 0, 0, 0.7); border-left: 3px solid var(--neon-green); z-index: 80; display: none; flex-direction: column; pointer-events: none; }
+        #chat-box { flex-grow: 1; overflow-y: auto; padding: 10px; color: var(--neon-green); font-size: 12px; display: flex; flex-direction: column-reverse; }
+        #chat-input { background: rgba(0, 20, 0, 0.9); border: none; border-top: 1px solid var(--neon-green); color: var(--neon-green); padding: 8px; pointer-events: auto; outline: none; }
+
+        #inventory-ui { display: none; position: absolute; top: 10%; left: 10%; width: 80%; height: 80%; background: rgba(15, 5, 5, 0.95); border: 2px solid var(--neon-red); color: var(--neon-red); z-index: 200; padding: 20px; box-shadow: 0 0 25px rgba(255, 0, 60, 0.5); }
         .inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; overflow-y: auto; max-height: 70%; }
-        .inv-item { background: rgba(255, 0, 60, 0.1); border: 1px solid #ff003c; height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .inv-item { background: rgba(255, 0, 60, 0.05); border: 1px solid var(--neon-red); height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 
-        /* Mobile Controls */
-        #mobile-controls {
-            position: absolute; bottom: 20px; right: 20px; z-index: 150; display: none; gap: 15px;
-        }
-        .mobile-btn {
-            width: 70px; height: 70px; background: rgba(0, 255, 0, 0.1); border: 2px solid #00ff00;
-            border-radius: 50%; color: #00ff00; font-weight: bold; display: flex; align-items: center; justify-content: center;
-            user-select: none; -webkit-tap-highlight-color: transparent;
-        }
+        /* --- NPC DIALOG UI --- */
+        #npc-ui { display: none; position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%); width: 60%; max-width: 600px; background: rgba(0, 10, 30, 0.95); border: 2px solid var(--neon-blue); color: var(--neon-blue); z-index: 300; padding: 20px; box-shadow: 0 0 25px rgba(0, 240, 255, 0.5); text-align: center; }
+        #npc-ui h2 { margin: 0 0 10px 0; border-bottom: 1px solid var(--neon-blue); padding-bottom: 5px; }
+        #npc-ui p { font-size: 16px; line-height: 1.5; }
+        #npc-ui button { background: var(--neon-blue); color: #000; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; margin-top: 15px; font-family: 'Courier New'; }
+
+        /* Mobile */
+        #mobile-controls { position: absolute; bottom: 20px; right: 20px; z-index: 150; display: none; gap: 15px; }
+        .mobile-btn { width: 65px; height: 65px; background: rgba(0, 255, 0, 0.1); border: 2px solid var(--neon-green); border-radius: 50%; color: var(--neon-green); display: flex; align-items: center; justify-content: center; font-weight: bold; user-select: none; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/phaser3-rex-plugins@1.1.39/dist/rexvirtualjoystickplugin.min.js"></script>
@@ -44,15 +52,28 @@
 <body>
 
     <div id="ui-layer">
-        <h1>DOGTOWN TERMINAL</h1>
-        <input type="text" id="username" placeholder="Runner Name..." maxlength="15"><br>
-        <button id="start-btn">CONNECTION START</button>
+        <div class="terminal-window">
+            <h1>Dogtown LogIn</h1>
+            <input type="text" id="username" placeholder="RUNNER_ID..." maxlength="15">
+            <button class="start-btn" onclick="startGame()">System beitreten</button>
+        </div>
+    </div>
+
+    <div id="chat-container">
+        <div id="chat-box"></div>
+        <input type="text" id="chat-input" placeholder="[Enter] chat..." maxlength="50">
     </div>
 
     <div id="inventory-ui">
-        <h2 style="border-bottom: 2px solid #ff003c">INVENTORY // V.2077</h2>
+        <h2 style="border-bottom: 2px solid #ff003c">INVENTORY</h2>
         <div id="inv-grid" class="inv-grid"></div>
-        <button onclick="toggleInv()" style="margin-top: 20px; background: #ff003c; color: #000; border:none; padding:10px;">CLOSE [I]</button>
+        <button onclick="toggleInv()" style="margin-top: 20px; background: var(--neon-red); color: #000; border:none; padding:10px; cursor:pointer;">VERLASSEN [I]</button>
+    </div>
+
+    <div id="npc-ui">
+        <h2 id="npc-name">NPC Name</h2>
+        <p id="npc-text">Hier steht der Dialogtext des NPCs.</p>
+        <button onclick="closeNpcDialog()">VERLASSEN</button>
     </div>
 
     <div id="mobile-controls">
@@ -63,16 +84,15 @@
     <script>
         const config = {
             type: Phaser.AUTO, width: window.innerWidth, height: window.innerHeight,
-            backgroundColor: '#050505', physics: { default: 'arcade' },
+            backgroundColor: '#0a0a0a', physics: { default: 'arcade' },
             scene: { preload: preload, create: create, update: update }
         };
 
         const game = new Phaser.Game(config);
-        let socket, myPlayerContainer, joystick, myData, cursors, keyE, keyI;
-        let otherPlayers, walls, itemsOnGround = {};
-        let isInvOpen = false;
-        let interactLabel; 
-        let currentNearbyItem = null;
+        let socket, myPlayerContainer, joystick, myData, keys, keyE, keyI, keyEnter;
+        let otherPlayers, walls, itemsOnGround = {}, npcsInGame = {};
+        let isInvOpen = false, isChatting = false, isDialogOpen = false;
+        let interactLabel, currentNearbyItem = null, currentNearbyNPC = null;
 
         function preload() {
             this.load.plugin('rexvirtualjoystickplugin', 'https://cdn.jsdelivr.net/npm/phaser3-rex-plugins@1.1.39/dist/rexvirtualjoystickplugin.min.js', true);
@@ -80,94 +100,119 @@
 
         function create() {
             const self = this;
-            this.physics.world.setBounds(0, 0, 2000, 2000);
+            const worldSize = 2000;
+            this.physics.world.setBounds(0, 0, worldSize, worldSize);
 
-            otherPlayers = this.physics.add.group();
+            // --- 1. BODEN GRID (Straße) ---
+            let graphics = this.add.graphics();
+            graphics.lineStyle(1, 0x1a1a1a, 1);
+            for (let i = 0; i <= worldSize; i += 50) {
+                graphics.moveTo(i, 0); graphics.lineTo(i, worldSize);
+                graphics.moveTo(0, i); graphics.lineTo(worldSize, i);
+            }
+            graphics.strokePath();
+
             walls = this.physics.add.staticGroup();
+            otherPlayers = this.physics.add.group();
+
+            // --- 2. V's APARTMENT (Megabuilding H10) ---
+            // Ein Raum, der von Wänden umschlossen ist, mit einem Ausgang unten rechts.
+            // Boden des Apartments (dunkler Teppich)
+            this.add.rectangle(150, 150, 300, 200, 0x221111).setDepth(-1); 
             
-            walls.add(this.add.rectangle(400, 300, 200, 20, 0xff00ff));
-            walls.add(this.add.rectangle(800, 800, 20, 300, 0x00ffff));
+            // Wände (Grau-metallisch)
+            walls.add(this.add.rectangle(150, 50, 300, 20, 0x555555)); // Oben
+            walls.add(this.add.rectangle(0, 150, 20, 200, 0x555555));  // Links
+            walls.add(this.add.rectangle(300, 150, 20, 200, 0x555555)); // Rechts
+            walls.add(this.add.rectangle(100, 250, 200, 20, 0x555555)); // Unten Links (Türlücke bei X:200 bis X:300)
 
-            interactLabel = this.add.text(0, 0, "", { 
-                fontSize: '14px', fill: '#ffff00', backgroundColor: '#000', padding: {x: 5, y: 2} 
-            }).setOrigin(0.5).setVisible(false).setDepth(1000);
+            // Apartment Deko (Text-Emojis als Platzhalter)
+            this.add.text(40, 80, "🛏️", { fontSize: '40px' }); // Bett
+            this.add.text(240, 80, "💻", { fontSize: '30px' }); // Computer Terminal
+            this.add.text(40, 200, "📦", { fontSize: '30px' }); // Stash/Kiste
 
-            cursors = this.input.keyboard.createCursorKeys();
+            // "Coast" Area weiter draußen (Deko-Barrikaden)
+            walls.add(this.add.rectangle(600, 500, 200, 20, 0x333333));
+            walls.add(this.add.rectangle(1000, 600, 200, 20, 0x113333)); // Ripperdoc Clinic Wand
+
+            interactLabel = this.add.text(0, 0, "", { fontSize: '14px', fill: '#ffff00', backgroundColor: '#000' }).setOrigin(0.5).setVisible(false).setDepth(1000);
+
+            this.keys = this.input.keyboard.addKeys({ up: Phaser.Input.Keyboard.KeyCodes.W, down: Phaser.Input.Keyboard.KeyCodes.S, left: Phaser.Input.Keyboard.KeyCodes.A, right: Phaser.Input.Keyboard.KeyCodes.D });
             keyE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
             keyI = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.I);
+            keyEnter = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
 
             if (this.sys.game.device.input.touch) {
                 document.getElementById('mobile-controls').style.display = 'flex';
-                joystick = this.plugins.get('rexvirtualjoystickplugin').add(this, {
-                    x: 100, y: window.innerHeight - 100, radius: 50,
-                    base: this.add.circle(0, 0, 50, 0x888888, 0.3),
-                    thumb: this.add.circle(0, 0, 25, 0x00ff00, 0.5),
-                });
-                joystick.setScrollFactor(0); 
+                joystick = this.plugins.get('rexvirtualjoystickplugin').add(this, { x: 100, y: window.innerHeight - 100, radius: 50, base: this.add.circle(0, 0, 50, 0x888888, 0.3), thumb: this.add.circle(0, 0, 25, 0x00ff00, 0.5) }).setScrollFactor(0);
             }
 
             document.getElementById('btn-inv').onclick = () => toggleInv();
-            document.getElementById('btn-pickup').onclick = () => tryPickup(self);
-
-            document.getElementById('start-btn').onclick = () => {
-                document.getElementById('ui-layer').style.display = 'none';
-                this.socket = io();
-                this.socket.emit('joinGame', { name: document.getElementById('username').value || "Choom" });
-                setupSocketEvents(self);
+            document.getElementById('btn-pickup').onclick = () => { 
+                if(currentNearbyItem) self.socket.emit('pickupItem', currentNearbyItem.itemId); 
+                else if(currentNearbyNPC) openNpcDialog(currentNearbyNPC);
             };
         }
 
-        function toggleInv() {
-            isInvOpen = !isInvOpen;
-            document.getElementById('inventory-ui').style.display = isInvOpen ? 'block' : 'none';
-            if(isInvOpen) updateInventoryUI();
-        }
-
-        function tryPickup(scene) {
-            if(currentNearbyItem) scene.socket.emit('pickupItem', currentNearbyItem.itemId);
+        function startGame() {
+            document.getElementById('ui-layer').style.display = 'none';
+            document.getElementById('chat-container').style.display = 'flex';
+            const self = game.scene.scenes[0];
+            self.socket = io();
+            self.socket.emit('joinGame', { name: document.getElementById('username').value || "V" });
+            setupSocketEvents(self);
         }
 
         function setupSocketEvents(self) {
             self.socket.on('currentPlayers', (players) => {
                 Object.keys(players).forEach((id) => {
-                    if (players[id].id === self.socket.id) {
-                        myData = players[id];
-                        addPlayer(self, players[id]);
-                    } else { addOtherPlayers(self, players[id]); }
+                    if (players[id].id === self.socket.id) { myData = players[id]; addPlayer(self, players[id]); }
+                    else { addOtherPlayers(self, players[id]); }
                 });
             });
 
+            self.socket.on('newMessage', (data) => {
+                const chatBox = document.getElementById('chat-box');
+                const msgEl = document.createElement('div');
+                msgEl.style.marginBottom = "5px";
+                msgEl.innerHTML = `<span style="color:#888">[${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}]</span> <b style="color:#00ff00">${data.name}:</b> ${data.text}`;
+                chatBox.prepend(msgEl);
+            });
+
+            // Lade Items
             self.socket.on('currentItems', (items) => {
                 Object.keys(items).forEach(id => {
                     const item = items[id];
                     let sprite = self.add.text(item.x, item.y, item.icon, { fontSize: '24px' }).setOrigin(0.5);
-                    sprite.itemId = item.id;
-                    sprite.itemName = item.name;
+                    sprite.itemId = item.id; sprite.itemName = item.name;
                     itemsOnGround[item.id] = sprite;
                 });
             });
 
-            self.socket.on('itemRemoved', (itemId) => {
-                if(itemsOnGround[itemId]) { itemsOnGround[itemId].destroy(); delete itemsOnGround[itemId]; }
+            // Lade NPCs
+            self.socket.on('currentNPCs', (serverNpcs) => {
+                Object.keys(serverNpcs).forEach(id => {
+                    const npcData = serverNpcs[id];
+                    let sprite = self.add.text(npcData.x, npcData.y, npcData.icon, { fontSize: '32px' }).setOrigin(0.5);
+                    // NPC Namensschild drüber
+                    self.add.text(npcData.x, npcData.y - 25, npcData.name, { fontSize: '10px', fill: '#00f0ff', fontStyle: 'bold' }).setOrigin(0.5);
+                    sprite.npcData = npcData; 
+                    npcsInGame[npcData.id] = sprite;
+                });
             });
 
+            self.socket.on('itemRemoved', (itemId) => { if(itemsOnGround[itemId]) { itemsOnGround[itemId].destroy(); delete itemsOnGround[itemId]; } });
             self.socket.on('updateInventory', (newInv) => { myData.inventory = newInv; });
-            self.socket.on('playerMoved', (pInfo) => {
-                otherPlayers.getChildren().forEach((p) => { if (pInfo.id === p.playerId) p.setPosition(pInfo.x, pInfo.y); });
-            });
-            self.socket.on('playerDisconnected', (id) => {
-                otherPlayers.getChildren().forEach((p) => { if(p.playerId === id) p.destroy(); });
-            });
+            self.socket.on('playerMoved', (pInfo) => { otherPlayers.getChildren().forEach((p) => { if (pInfo.id === p.playerId) p.setPosition(pInfo.x, pInfo.y); }); });
+            self.socket.on('playerDisconnected', (id) => { otherPlayers.getChildren().forEach((p) => { if(p.playerId === id) p.destroy(); }); });
         }
 
         function addPlayer(self, playerInfo) {
             myPlayerContainer = self.add.container(playerInfo.x, playerInfo.y);
-            myPlayerContainer.add([self.add.rectangle(0, 0, 32, 32, 0x00ff00), self.add.text(0, -25, playerInfo.name, { fontSize: '12px', fill: '#00ff00' }).setOrigin(0.5)]);
+            myPlayerContainer.add([self.add.rectangle(0, 0, 32, 32, 0x00ff00).setStrokeStyle(2, 0xffffff), self.add.text(0, -25, playerInfo.name, { fontSize: '12px', fill: '#00ff00', fontStyle: 'bold' }).setOrigin(0.5)]);
             self.physics.world.enable(myPlayerContainer);
             myPlayerContainer.body.setCollideWorldBounds(true);
-            self.physics.add.collider(myPlayerContainer, walls);
-
-            // STATISCHES FOLLOW: Lerp auf 1 (keine Verzögerung)
+            self.physics.add.collider(myPlayerContainer, walls); // Kollision mit Apartment-Wänden!
             self.cameras.main.startFollow(myPlayerContainer, true, 1, 1);
             self.cameras.main.setBounds(0, 0, 2000, 2000);
         }
@@ -175,34 +220,66 @@
         function addOtherPlayers(self, playerInfo) {
             const c = self.add.container(playerInfo.x, playerInfo.y);
             c.add([self.add.rectangle(0, 0, 32, 32, playerInfo.color), self.add.text(0, -25, playerInfo.name, { fontSize: '12px', fill: '#fff' }).setOrigin(0.5)]);
-            c.playerId = playerInfo.id;
-            otherPlayers.add(c);
+            c.playerId = playerInfo.id; otherPlayers.add(c);
+        }
+
+        function toggleInv() {
+            if(isDialogOpen) return; // Inventar nicht im Dialog öffnen
+            isInvOpen = !isInvOpen;
+            document.getElementById('inventory-ui').style.display = isInvOpen ? 'block' : 'none';
+            if(isInvOpen) updateInventoryUI();
         }
 
         function updateInventoryUI() {
             const grid = document.getElementById('inv-grid');
             grid.innerHTML = ""; 
-            if(!myData.inventory) return;
-            myData.inventory.forEach(item => {
-                const div = document.createElement('div');
-                div.className = "inv-item";
-                div.innerHTML = `<span>${item.icon}</span><p style="font-size:10px">${item.name}</p>`;
-                grid.appendChild(div);
-            });
+            if(myData.inventory) {
+                myData.inventory.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = "inv-item";
+                    div.innerHTML = `<span>${item.icon}</span><p style="font-size:10px">${item.name}</p>`;
+                    grid.appendChild(div);
+                });
+            }
+        }
+
+        function openNpcDialog(npcData) {
+            isDialogOpen = true;
+            document.getElementById('npc-name').innerText = npcData.name;
+            document.getElementById('npc-text').innerText = `"${npcData.dialog}"`;
+            document.getElementById('npc-ui').style.display = 'block';
+            myPlayerContainer.body.setVelocity(0); // Anhalten
+        }
+
+        function closeNpcDialog() {
+            isDialogOpen = false;
+            document.getElementById('npc-ui').style.display = 'none';
         }
 
         function update() {
-            if (myPlayerContainer && !isInvOpen) {
+            const chatInput = document.getElementById('chat-input');
+            if (Phaser.Input.Keyboard.JustDown(keyEnter)) {
+                if (!isChatting) { isChatting = true; chatInput.focus(); }
+                else {
+                    if (chatInput.value.trim() !== "") { this.socket.emit('chatMessage', chatInput.value); chatInput.value = ""; }
+                    isChatting = false; chatInput.blur();
+                }
+            }
+
+            // Bewegung nur wenn kein UI offen ist
+            if (myPlayerContainer && !isInvOpen && !isChatting && !isDialogOpen) {
                 const speed = 200;
                 myPlayerContainer.body.setVelocity(0);
-                
                 if (joystick && joystick.force > 0) {
                     this.physics.velocityFromAngle(joystick.angle, joystick.force * 2, myPlayerContainer.body.velocity);
                 } else {
-                    if (cursors.left.isDown) myPlayerContainer.body.setVelocityX(-speed);
-                    else if (cursors.right.isDown) myPlayerContainer.body.setVelocityX(speed);
-                    if (cursors.up.isDown) myPlayerContainer.body.setVelocityY(-speed);
-                    else if (cursors.down.isDown) myPlayerContainer.body.setVelocityY(speed);
+                    if (this.keys.left.isDown) myPlayerContainer.body.setVelocityX(-speed);
+                    else if (this.keys.right.isDown) myPlayerContainer.body.setVelocityX(speed);
+                    if (this.keys.up.isDown) myPlayerContainer.body.setVelocityY(-speed);
+                    else if (this.keys.down.isDown) myPlayerContainer.body.setVelocityY(speed);
+                    if (myPlayerContainer.body.velocity.x !== 0 && myPlayerContainer.body.velocity.y !== 0) {
+                        myPlayerContainer.body.velocity.normalize().scale(speed);
+                    }
                 }
 
                 if (myPlayerContainer.body.velocity.x !== 0 || myPlayerContainer.body.velocity.y !== 0) {
@@ -211,20 +288,30 @@
 
                 if (Phaser.Input.Keyboard.JustDown(keyI)) toggleInv();
 
+                // Check Items & NPCs Nähe
                 currentNearbyItem = null;
+                currentNearbyNPC = null;
+                
                 Object.values(itemsOnGround).forEach(sprite => {
-                    const dist = Phaser.Math.Distance.Between(myPlayerContainer.x, myPlayerContainer.y, sprite.x, sprite.y);
-                    if(dist < 50) currentNearbyItem = sprite;
+                    if(Phaser.Math.Distance.Between(myPlayerContainer.x, myPlayerContainer.y, sprite.x, sprite.y) < 60) currentNearbyItem = sprite;
                 });
 
+                Object.values(npcsInGame).forEach(sprite => {
+                    if(Phaser.Math.Distance.Between(myPlayerContainer.x, myPlayerContainer.y, sprite.x, sprite.y) < 70) currentNearbyNPC = sprite.npcData;
+                });
+
+                // Zeige Label (Item hat Priorität vor NPC beim Text)
                 if(currentNearbyItem) {
-                    interactLabel.setPosition(myPlayerContainer.x, myPlayerContainer.y - 55);
-                    interactLabel.setText("[E] " + currentNearbyItem.itemName);
-                    interactLabel.setVisible(true);
-                    if (Phaser.Input.Keyboard.JustDown(keyE)) tryPickup(this);
-                } else {
-                    interactLabel.setVisible(false);
+                    interactLabel.setPosition(myPlayerContainer.x, myPlayerContainer.y - 55).setText("[E] " + currentNearbyItem.itemName).setVisible(true);
+                    if (Phaser.Input.Keyboard.JustDown(keyE)) this.socket.emit('pickupItem', currentNearbyItem.itemId);
+                } else if(currentNearbyNPC) {
+                    interactLabel.setPosition(myPlayerContainer.x, myPlayerContainer.y - 55).setText("[E] Rede mit " + currentNearbyNPC.name).setVisible(true);
+                    if (Phaser.Input.Keyboard.JustDown(keyE)) openNpcDialog(currentNearbyNPC);
+                } else { 
+                    interactLabel.setVisible(false); 
                 }
+            } else if (myPlayerContainer) {
+                myPlayerContainer.body.setVelocity(0); // Immer stoppen bei UI
             }
         }
     </script>
